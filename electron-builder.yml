@@ -1,0 +1,10 @@
+appId: ca.seanbehan.nixos-control-center
+productName: NixOS Control Center
+files:
+  - dist/**/*
+  - node_modules/**/*
+  - package.json
+linux:
+  target:
+    - AppImage
+  category: Utility
