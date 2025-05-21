@@ -1,5 +1,5 @@
 {
-  description = "A flake for a Rust + Qt6 application";
+  description = "A flake for an Electron + TypeScript application";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
@@ -9,46 +9,58 @@
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
-      qtPkgs = pkgs.qt6;
-      rustToolchain = pkgs.rustPlatform;
     in
     {
       devShells.${system}.default = pkgs.mkShell {
         nativeBuildInputs = [
-          pkgs.pkg-config
-          pkgs.cargo
-          pkgs.rustc
-          pkgs.rustfmt
-          pkgs.rust-analyzer
-          pkgs.clippy
-          qtPkgs.qtbase
-          qtPkgs.qtdeclarative
-          qtPkgs.wrapQtAppsHook
+          pkgs.nodejs_20
+          pkgs.nodePackages.npm
+          pkgs.nodePackages.typescript
+          pkgs.nodePackages.eslint
+          pkgs.nodePackages.prettier
+          pkgs.electron
+          pkgs.nodePackages.typescript-language-server
         ];
-        buildInputs = [
-          qtPkgs.qtbase
-          qtPkgs.qtdeclarative
-        ];
-        # QT_LOGGING_RULES = "qt6.debug=false";
+        
+        ELECTRON_CACHE = "$HOME/.cache/electron";
+        ELECTRON_BUILDER_CACHE = "$HOME/.cache/electron-builder";
+        
+        shellHook = ''
+          export PATH=$PATH:./node_modules/.bin
+        '';
       };
 
-      packages.${system}.default = rustToolchain.buildRustPackage {
-        pname = "nixos-configure";
+      packages.${system}.default = pkgs.stdenv.mkDerivation {
+        pname = "nixos-control-center";
         version = "0.1.0";
         src = ./.;
-        cargoLock = {
-          lockFile = ./Cargo.lock;
-        };
+
         nativeBuildInputs = [
-          pkgs.pkg-config
-          qtPkgs.qtbase
-          qtPkgs.qtdeclarative
-          qtPkgs.wrapQtAppsHook
+          pkgs.nodejs_20
+          pkgs.nodePackages.npm
+          pkgs.electron
+          pkgs.makeWrapper
         ];
-        buildInputs = [
-          qtPkgs.qtbase
-          qtPkgs.qtdeclarative
-        ];
+
+        buildPhase = ''
+          npm ci
+          npm run build
+          npm run package
+        '';
+
+        installPhase = ''
+          mkdir -p $out/bin
+          mkdir -p $out/share/electron-app
+          cp -r dist/* $out/share/electron-app/
+          makeWrapper ${pkgs.electron}/bin/electron $out/bin/electron-app \
+            --add-flags "$out/share/electron-app/main.js"
+        '';
+
+        meta = with pkgs.lib; {
+          description = "NixOS Configuration Management Electron application built with TypeScript";
+          maintainers = [];
+          platforms = platforms.linux;
+        };
       };
     };
 }
